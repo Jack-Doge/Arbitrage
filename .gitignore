@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+*.so
+.Python
+.pytest_cache/
+.mypy_cache/
+
+# Local/runtime files
+.env
+*.log
+*.csv
+*.xlsx
+*.db
+
+# IDE / OS files
+.DS_Store
+.idea/
+.vscode/
+

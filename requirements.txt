@@ -1,0 +1,6 @@
+pandas
+websocket-client
+loguru
+requests
+python-binance
+

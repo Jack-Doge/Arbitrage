@@ -18,6 +18,7 @@ import math
 
 pd.set_option("display.max_rows", 2000)
 df = pd.DataFrame(columns=["time", "bid", "ask"])
+DEFAULT_DRY_RUN = os.getenv("ARBITRAGE_DRY_RUN", "0").strip().lower() in {"1", "true", "yes", "on"}
 
 
 
@@ -82,6 +83,7 @@ class Window():
         self.base_profit_label:         tk.Label
         self.count_label:               tk.Label
         self.connection:                bool
+        self.dry_run:                   bool = DEFAULT_DRY_RUN
         self.lock = threading.Lock()
 
 
@@ -130,6 +132,7 @@ class Window():
                     self.exchange_1 = "BitoPro"
                     self.exchange_2 = "OKX"
 
+                self.arbitrage_bot.dry_run = self.dry_run
                 self.arbitrage_bot.quote = self.quote
                 self.arbitrage_bot.base = self.base
                 self.input_key_secret()
@@ -188,25 +191,43 @@ class Window():
                 clear(self.root)
 
                 # -------------------------------------------------- login ------------------------------------------------
-                if self.exchange_1 == "BitoPro":
-                    self.arbitrage_bot.exchange_1_login(self.api_key_1, self.secret_key_1, self.bito_email)
+                if self.dry_run:
+                    self.arbitrage_bot.exchange_1_quote_balance = 1000.0
+                    self.arbitrage_bot.exchange_1_base_balance = 1000.0
+                    self.arbitrage_bot.exchange_2_quote_balance = 1000.0
+                    self.arbitrage_bot.exchange_2_base_balance = 1000.0
+                    self.arbitrage_bot.ex1_to_ex2_max_qty = 1000.0
+                    self.arbitrage_bot.ex2_to_ex1_max_qty = 1000.0
+                    self.arbitrage_bot.min_order_qty = 0.0001
+                    self.arbitrage_bot.min_order_decimal = 4
+                    self.arbitrage_bot.ex_1_to_ex_2_direction = True
+                    self.arbitrage_bot.ex_2_to_ex_1_direction = True
+                    self.arbitrage_bot.direction = "Both (dry run)"
+                    self.arbitrage_bot.exchange_1_trade_fee = 0.0
+                    self.arbitrage_bot.exchange_2_trade_fee = 0.0
+                    self.arbitrage_bot.min_arbitrage_ratio = 0.0
+                    self.arbitrage_bot.current_price = 1.0
+                    self.arbitrage_bot.set_initial_capital()
                 else:
-                    self.arbitrage_bot.exchange_1_login(self.api_key_1, self.secret_key_1)
-                if self.exchange_2 == "OKX":
-                    self.arbitrage_bot.exchange_2_login(self.api_key_2, self.secret_key_2, self.okx_passphrase)
-                else:
-                    self.arbitrage_bot.exchange_2_login(self.api_key_2, self.secret_key_2)
-                # ---------- get min_qty, min_qty_step, balance; set direction, set_initial_capital(quote, base) ----------
-                self.arbitrage_bot.order_min_limitation()
-                balance_res = self.arbitrage_bot.check_balance()
-                if balance_res == "error":
-                    messagebox.showerror("Error", "Balance insufficient, please replendish before continue")
-                    self.input_key_secret()
-    
-                elif balance_res == "login error":
-                    messagebox.showerror("Error", "Login error, please check your login params")
-                    self.input_key_secret()                   
-                self.arbitrage_bot.set_initial_capital() 
+                    if self.exchange_1 == "BitoPro":
+                        self.arbitrage_bot.exchange_1_login(self.api_key_1, self.secret_key_1, self.bito_email)
+                    else:
+                        self.arbitrage_bot.exchange_1_login(self.api_key_1, self.secret_key_1)
+                    if self.exchange_2 == "OKX":
+                        self.arbitrage_bot.exchange_2_login(self.api_key_2, self.secret_key_2, self.okx_passphrase)
+                    else:
+                        self.arbitrage_bot.exchange_2_login(self.api_key_2, self.secret_key_2)
+                    # ---------- get min_qty, min_qty_step, balance; set direction, set_initial_capital(quote, base) ----------
+                    self.arbitrage_bot.order_min_limitation()
+                    balance_res = self.arbitrage_bot.check_balance()
+                    if balance_res == "error":
+                        messagebox.showerror("Error", "Balance insufficient, please replendish before continue")
+                        self.input_key_secret()
+        
+                    elif balance_res == "login error":
+                        messagebox.showerror("Error", "Login error, please check your login params")
+                        self.input_key_secret()
+                    self.arbitrage_bot.set_initial_capital()
 
                 # ---------------------------------------------- plot balance ----------------------------------------------
                 frame = tk.Frame()
@@ -217,17 +238,20 @@ class Window():
                 tk.Label(frame, text = f"{self.exchange_2} {self.base}   balance: {self.arbitrage_bot.exchange_2_base_balance}" , font = ("Arial 18")).grid(row = 3, column = 0, sticky = "w")
 
                 # -------------------------------------------- get and plot trading fee -------------------------------------
-                if self.exchange_1 == "BitoPro":
-                    self.arbitrage_bot.get_trading_fee(self.bito_vip_level)
-                else:
-                    self.arbitrage_bot.get_trading_fee()
+                if not self.dry_run:
+                    if self.exchange_1 == "BitoPro":
+                        self.arbitrage_bot.get_trading_fee(self.bito_vip_level)
+                    else:
+                        self.arbitrage_bot.get_trading_fee()
                 tk.Label(frame, text = f"{self.exchange_1} trading fee: {self.arbitrage_bot.exchange_1_trade_fee}", font = ("Arial 18")).grid(row = 4, column = 0, sticky = "w")
                 tk.Label(frame, text = f"{self.exchange_2} trading fee: {self.arbitrage_bot.exchange_2_trade_fee}", font = ("Arial 18")).grid(row = 5, column = 0, sticky = "w")
+                if self.dry_run:
+                    tk.Label(frame, text = "Mode: DRY RUN (no real orders)", font = ("Arial 14")).grid(row = 6, column = 0, sticky = "w")
 
                 backButtom    = tk.Button(frame, text = "Back", command = self.input_key_secret,    font = ("Arial 18"))
-                backButtom    . grid(row = 6, column = 0, sticky = "E")
+                backButtom    . grid(row = 7, column = 0, sticky = "E")
                 confirmButtom = tk.Button(frame, text = "Next", command = self.input_arbitrage_param, font = ("Arial 18"))
-                confirmButtom . grid(row = 6, column = 1, sticky = "W")
+                confirmButtom . grid(row = 7, column = 1, sticky = "W")
 
                 for widget in self.root.winfo_children():
                     widget.configure(bg = "#0A1A33")
@@ -293,7 +317,8 @@ class Window():
                 self.arbitrage_bot.arbitrage_ratio         = float(entry_arbitrage_ratio.get())
                 self.arbitrage_bot.arbitrage_quantity_type = entry_arbitage_quantity_type.get() # fixed, equity, market
                 self.arbitrage_bot.arbitrage_quantity      = float(entry_arbitrage_quantity.get()) # fixed: contract / equity: % of equity / market: % of min(ask, bid)
-                self.arbitrage_bot.fetch_current_price()
+                if not self.dry_run:
+                    self.arbitrage_bot.fetch_current_price()
                 for i in range(1):
 
                     if self.arbitrage_bot.arbitrage_ratio < self.arbitrage_bot.min_arbitrage_ratio:
@@ -607,6 +632,8 @@ class Window():
         tk.Label(self.count_frame, text = "24hours Arbitrage Count: ", fg = "white", font = ("Arial 18")).grid(row = 0, column = 0, sticky = "NESW")
         self.count_label = tk.Label(self.count_frame, text = " 0 ", font = ("Arial 18"), fg = "#D7FFDB")
         self.count_label.grid(row = 0, column = 1)
+        if self.dry_run:
+            tk.Label(self.count_frame, text = "DRY RUN", font = ("Arial 12"), fg = "#FFD166").grid(row = 1, column = 0, columnspan = 2)
 
         def end():
             os._exit(0)

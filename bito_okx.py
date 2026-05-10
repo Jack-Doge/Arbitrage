@@ -8,7 +8,8 @@ import requests, json
 import asyncio
 import time
 
-asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+if hasattr(asyncio, "WindowsSelectorEventLoopPolicy"):
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 class BitoOkxArbitrage(threading.Thread):
     
@@ -53,6 +54,7 @@ class BitoOkxArbitrage(threading.Thread):
         self.min_step_qty:                  float
         self.min_order_decimal:             int
         self.count:                         int
+        self.dry_run:                       bool = False
         self.bito_timestamp = 99999
         self.okx_timestamp = 0
 
@@ -83,6 +85,7 @@ class BitoOkxArbitrage(threading.Thread):
 
     def exchange_2_login(self, okx_key: str, okx_secret: str, okx_passphrase: str):
         self.exchange_2_symbol  = f"{self.quote}-{self.base}"
+        self.okx_symbol = self.exchange_2_symbol
         self.exchange_2_secret  = okx_secret
         self.exchange_2_passphrase = okx_passphrase
         self.exchange_2_client  = Okx(okx_key, okx_secret, okx_passphrase)
@@ -132,7 +135,7 @@ class BitoOkxArbitrage(threading.Thread):
     def get_trading_fee(self, bito_vip_level): # BITO USERS NEED TO INPUT THE VIP RANKING
         bito_fee_rule = {"0": 0.002, "1": 0.00194, "2": 0.0015, "3": 0.0014, "4": 0.0013, "5": 0.0012, "6": 0.0011, "market maker": 0}
         self.exchange_1_trade_fee = bito_fee_rule[bito_vip_level]
-        self.exchange_2_trade_fee = math.fabs(float(asyncio.run(self.exchange_2_client.get_trade_fee("SPOT", "BTC-USDT"))["data"][0]["taker"]))
+        self.exchange_2_trade_fee = math.fabs(float(asyncio.run(self.exchange_2_client.get_trade_fee("SPOT", f"{self.quote}-{self.base}"))["data"][0]["taker"]))
         self.min_arbitrage_ratio  = self.exchange_1_trade_fee + self.exchange_2_trade_fee
 
 
@@ -193,6 +196,21 @@ class BitoOkxArbitrage(threading.Thread):
         return (ex1_to_ex2_bar_height, ex1_to_ex2_bar_color, ex2_to_ex1_bar_height, ex2_to_ex1_bar_color)
 
     def create_order_ex1_to_ex2(self, quantity: float):
+        if self.dry_run:
+            bito_fill_time = int(self.bito_timestamp if self.bito_timestamp != 99999 else time.time() * 1000)
+            okx_fill_time = int(self.okx_timestamp if self.okx_timestamp != 0 else time.time() * 1000)
+            bito_fill_price = float(getattr(self, "bito_ask", self.current_price))
+            okx_fill_price = float(getattr(self, "okx_bid", self.current_price))
+            bito_fill_amount = float(quantity)
+            okx_fill_amount = float(quantity)
+            order_profit = okx_fill_price * okx_fill_amount - bito_fill_price * bito_fill_amount
+            self.count += 1
+            return (
+                (timestamp_to_string(bito_fill_time), "BitoPro", "BUY", bito_fill_price, bito_fill_amount, 0.0, self.base),
+                (timestamp_to_string(okx_fill_time), "OKX", "SELL", okx_fill_price, okx_fill_amount, 0.0, self.base),
+                (order_profit),
+            )
+
         bito_respond    = self.exchange_1_client.set_private_create_order(
                             pair = self.exchange_1_symbol, 
                             action = "BUY", 
@@ -237,15 +255,30 @@ class BitoOkxArbitrage(threading.Thread):
 
     
     def create_order_ex2_to_ex1(self, quantity: float):
-        okx_respond   = self.exchange_2_client.place_an_order(
+        if self.dry_run:
+            bito_fill_time = int(self.bito_timestamp if self.bito_timestamp != 99999 else time.time() * 1000)
+            okx_fill_time = int(self.okx_timestamp if self.okx_timestamp != 0 else time.time() * 1000)
+            bito_fill_price = float(getattr(self, "bito_bid", self.current_price))
+            okx_fill_price = float(getattr(self, "okx_ask", self.current_price))
+            bito_fill_amount = float(quantity)
+            okx_fill_amount = float(quantity)
+            order_profit = bito_fill_price * bito_fill_amount - okx_fill_price * okx_fill_amount
+            self.count += 1
+            return (
+                (timestamp_to_string(bito_fill_time), "BitoPro", "SELL", bito_fill_price, bito_fill_amount, 0.0, self.base),
+                (timestamp_to_string(okx_fill_time), "OKX", "BUY", okx_fill_price, okx_fill_amount, 0.0, self.base),
+                (order_profit),
+            )
+
+        okx_respond   = asyncio.run(self.exchange_2_client.place_an_order(
                             inst_id = self.okx_symbol,
                             side = "BUY", 
                             size = quantity, 
-                            type_ = "MARKET"
-                            )
+                            type_ = "market"
+                            ))
         bito_respond      = self.exchange_1_client.set_private_create_order(
                             pair = self.exchange_1_symbol, 
-                            aciton = "SELL", 
+                            action = "SELL", 
                             amount = quantity, 
                             _type = "market", 
                             price = self.bito_order_used_sell
