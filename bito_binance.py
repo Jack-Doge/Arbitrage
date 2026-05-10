@@ -6,6 +6,7 @@ from loguru import logger
 import math
 import threading
 import requests, json
+import time
 
 class BitoBinanceArbitrage(threading.Thread):
     
@@ -50,6 +51,7 @@ class BitoBinanceArbitrage(threading.Thread):
         self.min_step_qty:                  float
         self.min_order_decimal:             int
         self.count:                         int
+        self.dry_run:                       bool = False
         self.bito_timestamp = 99999
         self.binance_timestamp = 0
 
@@ -180,6 +182,21 @@ class BitoBinanceArbitrage(threading.Thread):
         return (ex1_to_ex2_bar_height, ex1_to_ex2_bar_color, ex2_to_ex1_bar_height, ex2_to_ex1_bar_color)
 
     def create_order_ex1_to_ex2(self, quantity: float):
+        if self.dry_run:
+            bito_fill_time = int(self.bito_timestamp if self.bito_timestamp != 99999 else time.time() * 1000)
+            binance_fill_time = int(self.binance_timestamp if self.binance_timestamp != 0 else time.time() * 1000)
+            bito_fill_price = float(getattr(self, "bito_ask", self.current_price))
+            binance_fill_price = float(getattr(self, "binance_bid", self.current_price))
+            bito_fill_amount = float(quantity)
+            binance_fill_amount = float(quantity)
+            order_profit = binance_fill_price * binance_fill_amount - bito_fill_price * bito_fill_amount
+            self.count += 1
+            return (
+                (timestamp_to_string(bito_fill_time), "BitoPro", "BUY", bito_fill_price, bito_fill_amount, 0.0, self.base),
+                (timestamp_to_string(binance_fill_time), "Binance", "SELL", binance_fill_price, binance_fill_amount, 0.0, self.base),
+                (order_profit),
+            )
+
         bito_respond    = self.exchange_1_client.set_private_create_order(
                             pair = self.exchange_1_symbol, 
                             action = "BUY", 
@@ -220,6 +237,21 @@ class BitoBinanceArbitrage(threading.Thread):
 
     
     def create_order_ex2_to_ex1(self, quantity: float):
+        if self.dry_run:
+            bito_fill_time = int(self.bito_timestamp if self.bito_timestamp != 99999 else time.time() * 1000)
+            binance_fill_time = int(self.binance_timestamp if self.binance_timestamp != 0 else time.time() * 1000)
+            bito_fill_price = float(getattr(self, "bito_bid", self.current_price))
+            binance_fill_price = float(getattr(self, "binance_ask", self.current_price))
+            bito_fill_amount = float(quantity)
+            binance_fill_amount = float(quantity)
+            order_profit = bito_fill_price * bito_fill_amount - binance_fill_price * binance_fill_amount
+            self.count += 1
+            return (
+                (timestamp_to_string(bito_fill_time), "BitoPro", "SELL", bito_fill_price, bito_fill_amount, 0.0, self.base),
+                (timestamp_to_string(binance_fill_time), "Binance", "BUY", binance_fill_price, binance_fill_amount, 0.0, self.base),
+                (order_profit),
+            )
+
         binance_respond   = self.exchange_2_client.new_order(
                             symbol = self.exchange_2_symbol, 
                             side = "BUY", 
@@ -228,7 +260,7 @@ class BitoBinanceArbitrage(threading.Thread):
                             )
         bito_respond      = self.exchange_1_client.set_private_create_order(
                             pair = self.exchange_1_symbol, 
-                            aciton = "SELL", 
+                            action = "SELL", 
                             amount = quantity, 
                             _type = "MARKET", 
                             price = self.current_price * 0.8
