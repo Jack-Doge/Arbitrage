@@ -31,6 +31,7 @@ python run_gui.py
 ```
 
 Dry-run mode keeps the full signal/decision flow but does **not** submit real orders.
+The GUI masks API key / secret / passphrase inputs to reduce shoulder-surfing risk.
 
 ## Environment variables
 
@@ -39,4 +40,3 @@ Dry-run mode keeps the full signal/decision flow but does **not** submit real or
 ## Risk note
 
 This project touches real trading APIs. Always test in dry-run/small-size mode first.
-
