@@ -284,16 +284,16 @@ class Window():
 
         if self.exchange_2 == "OKX":
             tk.Label(frame, text = f"OKX Passphrase", font = ("Arial 18")).grid(row = 6, column = 0, sticky = "w")
-            entry_okx_passphrase = tk.Entry(frame, textvariable = tk.StringVar(), font = ("Arial 18"), bg = "#0A1A33", fg = "white")
+            entry_okx_passphrase = tk.Entry(frame, textvariable = tk.StringVar(), font = ("Arial 18"), bg = "#0A1A33", fg = "white", show = "*")
             entry_okx_passphrase.grid(row = 6, column = 1)
 
-        entry_api_key_1     = tk.Entry(frame, textvariable = tk.StringVar(), font = ("Arial 18"), bg = "#0A1A33", fg = "white")
+        entry_api_key_1     = tk.Entry(frame, textvariable = tk.StringVar(), font = ("Arial 18"), bg = "#0A1A33", fg = "white", show = "*")
         entry_api_key_1     . grid(row = 0, column = 1)
-        entry_secret_key_1  = tk.Entry(frame, textvariable = tk.StringVar(), font = ("Arial 18"), bg = "#0A1A33", fg = "white")
+        entry_secret_key_1  = tk.Entry(frame, textvariable = tk.StringVar(), font = ("Arial 18"), bg = "#0A1A33", fg = "white", show = "*")
         entry_secret_key_1  . grid(row = 1, column = 1)
-        entry_api_key_2     = tk.Entry(frame, textvariable = tk.StringVar(), font = ("Arial 18"), bg = "#0A1A33", fg = "white")
+        entry_api_key_2     = tk.Entry(frame, textvariable = tk.StringVar(), font = ("Arial 18"), bg = "#0A1A33", fg = "white", show = "*")
         entry_api_key_2     . grid(row = 2, column = 1)
-        entry_secret_key_2  = tk.Entry(frame, textvariable = tk.StringVar(), font = ("Arial 18"), bg = "#0A1A33", fg = "white")
+        entry_secret_key_2  = tk.Entry(frame, textvariable = tk.StringVar(), font = ("Arial 18"), bg = "#0A1A33", fg = "white", show = "*")
         entry_secret_key_2  . grid(row = 3, column = 1)
 
 
