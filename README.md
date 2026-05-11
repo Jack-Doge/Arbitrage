@@ -36,6 +36,7 @@ The GUI masks API key / secret / passphrase inputs to reduce shoulder-surfing ri
 ## Environment variables
 
 - `ARBITRAGE_DRY_RUN`: `1` enables simulated order fills
+- Set `ARBITRAGE_DRY_RUN=0` only when you are ready for live order execution.
 
 ## Risk note
 
